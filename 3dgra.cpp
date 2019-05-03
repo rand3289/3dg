@@ -20,13 +20,14 @@ struct Point {
     Point(double X, double Y, double Z): x(X), y(Y), z(Z) {}
 };
 
-
+// create a point structure with redX, blueX, y
 struct iPoint{
     int x,y,z;
     iPoint(): x(0), y(0), z(0) {}
     iPoint(int X, int Y, int Z): x(X), y(Y), z(Z) {}
 };
-
+bool lessZ(const iPoint& lhs, const iPoint& rhs){ return lhs.z > rhs.z; } // less Z axis
+//bool lessZ(const iPoint& lhs, const iPoint& rhs){ return lhs.redx-lhs.bluex < rhs.redx-rhs.bluex; }
 
 struct Node {
     Point pt;
@@ -41,33 +42,48 @@ struct Edge{
     Edge(int fromID, int toID): from(fromID), to(toID) {}
 };
 
+const double eyeDist = 1000.0; // distance from the screen to your eye
+const double eye2eye = 100.0;  // distance between eyes
+
+// project Point to screen coordinates iPoint
 void project(const Polar& screen, const Point& point, iPoint& pt){
     const double screenX = 1000.0;
     const double screenY = 1000.0;
-    const double eyeDist = 1000.0;    // distance from the screen to your eye
     pt.x = point.x;
     pt.y = point.y;
     pt.z = point.z;
-} 
+}
 
-iPoint red(const iPoint& pt){}
-iPoint blue(const iPoint& pt){}
+
+struct SDLRect {
+    SDL_Rect rect;
+    SDL_Rect* operator()(){ return &rect; }
+    SDLRect(){ rect.x=0; rect.y=0; rect.w=0; rect.h=0; }
+    SDLRect(int x, int y, int w, int h){ rect.x=x; rect.y=y; rect.w=w; rect.h=h; }
+};
 
 void drawPoint(SDL_Renderer* rend, const iPoint& pt){ // circle at pt.x, pt.y of size pt.z
-    SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE);
-//    SDL_SetRenderDrawBlendMode(rend,SDL_BLENDMODE_ADD);
-    SDL_RenderDrawPoint(rend, pt.x, pt.y);
+    int screenZ = (pt.z+eyeDist)*(eye2eye/eyeDist)*2;
+//    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
+    screenZ = min(screenZ, 70);   // infinity
+    screenZ = max(screenZ, -70); // too close
+
+    SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
+    SDLRect rect(pt.x-screenZ-3, pt.y-3, 7, 7);
+    SDL_RenderFillRect(rend, rect()); 
+
+    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
+    rect.rect.x = pt.x+screenZ-3;
+    SDL_RenderFillRect(rend, rect()); 
 }
 
 void drawEdge(SDL_Renderer* rend, const iPoint& from, const iPoint& to){ // line from .. to ..
-    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE);        
-//    SDL_SetRenderDrawBlendMode(rend,SDL_BLENDMODE_ADD);
-    SDL_RenderDrawLine(rend, from.x, from.y , to.x, to.y);
+//    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE);
+//    SDL_RenderDrawLine(rend, from.x, from.y , to.x, to.y);
 }
 
 double r(){ return (double) (rand() % 2000) - 1000.0; }
 
-bool lessZ(const iPoint& lhs, const iPoint& rhs){ return lhs.z > rhs.z; } // less Z axis
 
 
 int main(int argc, char* argv[]){
@@ -108,12 +124,12 @@ int main(int argc, char* argv[]){
 	return 2;
     }
 
-//    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP); // SDL_WINDOW_FULLSCREEN for different resolution
+    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP); // SDL_WINDOW_FULLSCREEN for different resolution
     SDL_Event e;
     bool run = true;
 
     while(run){
-        SDL_PollEvent( &e ); // SDL_WaitEvent(&e);
+        SDL_PollEvent( &e );
 	if(e.type == SDL_QUIT){ break; }
 	if(e.type == SDL_KEYDOWN){
             switch(e.key.keysym.sym){
@@ -129,14 +145,15 @@ int main(int argc, char* argv[]){
 	screen = screen + delta;
 
         for(int i=0; i< POINT_COUNT; ++i){
-	    project(screen, points[i].pt, xy[i]); // in xy: x,y are screen coordinates of a point and z is the depth	    
+	    project(screen, points[i].pt, xy[i]);
 	}
 	std::sort(xy.begin(), xy.end(), lessZ);
 
+        SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
+        SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_ADD);
 
-        // TODO: draw red and blue separately (sequentially) ???
 	for(int i=0; i< EDGE_COUNT; ++i){
 	    drawEdge(renderer, xy[edges[i].from], xy[edges[i].to]);
 	}
