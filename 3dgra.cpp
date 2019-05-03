@@ -1,4 +1,4 @@
-#include <algorithm>
+//#include <algorithm> // sort()
 #include <vector>
 #include <iostream>
 #include <SDL2/SDL.h> // Simple Directmedia Layer lib
@@ -9,9 +9,7 @@ struct Polar {
     Polar(): x(0.0), y(0.0), z(0.0), d(0.0) {}
     Polar(double X, double Y, double Z, double D): x(X), y(Y), z(Z), d(D) {}
     Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
-//    Polar& rotateX(double a){ x+=a; return *this; }
-//    Polar& rotateY(double a){ y+=a; return *this; }
-//    Polar& rotateZ(double a){ z+=a; return *this; }
+    Polar& operator+=(const Polar&rhs){x+=rhs.x; y+=rhs.y; z+=rhs.z; d+=rhs.d; return *this; }
 };
   
 struct Point {
@@ -27,9 +25,9 @@ struct RBPoint{
 };
 
 struct Node {
-    Point pt;
 //    int id;
 //    string label;
+    Point pt;
     Node(double X, double Y, double Z): pt(X,Y,Z) {}
 };
 
@@ -40,13 +38,12 @@ struct Edge{
 };
 
 // project Point to screen coordinates RBPoint
-void project(const Polar& screen, const Point& point, RBPoint& pt){
+void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     const double eyeDist = 1000.0; // distance from the screen to your eye
     const double eye2eye = 100.0;  // distance between eyes
-    const double screenX = 1000.0;
-    const double screenY = 1000.0;
 
 // TODO: use screen.d for depth calculations && screen.x, screen.y for rotation calculations. Avoid screen.z (twist)
+// rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
     int screenZ = (point.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
     screenZ = min(screenZ, 70);   // infinity
@@ -55,39 +52,35 @@ void project(const Polar& screen, const Point& point, RBPoint& pt){
     pt.redx  = point.x + screenZ;
     pt.bluex = point.x - screenZ;
     pt.y = point.y;
+// TODO: make sure redx and bluex are on screen (>0 && <width) otherwise set y to -1
 }
 
-struct SDLRect {
-    SDL_Rect rect;
-    SDL_Rect* operator()(){ return &rect; }
-    SDLRect(){ rect.x=0; rect.y=0; rect.w=0; rect.h=0; }
-    SDLRect(int x, int y, int w, int h){ rect.x=x; rect.y=y; rect.w=w; rect.h=h; }
-};
-
 void drawPoint(SDL_Renderer* rend, const RBPoint& pt){
-    SDLRect rect(pt.bluex-3, pt.y-3, 7, 7);
+    if(pt.y < 0) { return; }
+    SDL_Rect rect;  rect.x=pt.bluex-3;  rect.y= pt.y-3;  rect.w=7;  rect.h=7;
     SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
-    SDL_RenderFillRect(rend, rect()); 
+    SDL_RenderFillRect(rend, &rect); 
 
-    rect.rect.x = pt.redx-3;
+    rect.x = pt.redx-3;
     SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
-    SDL_RenderFillRect(rend, rect());
+    SDL_RenderFillRect(rend, &rect);
 }
 
 void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // line
+    if( from.y < 0 && to.y < 0 ){ return; } // if both end points are off the screen, do not draw the edge
     SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
     SDL_RenderDrawLine(rend, from.redx, from.y , to.redx, to.y);
     SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
     SDL_RenderDrawLine(rend, from.bluex, from.y , to.bluex, to.y);
 }
 
-double r(){ return (double) (rand() % 2000 - 1000); }
-
-void loadGraph(vector<Node>& points, vector<Edge>& edges){
-    const int POINT_COUNT = 100;
+void loadGraph(vector<Node>& points, vector<Edge>& edges, int width, int height){ // screen width & height
+    const int POINT_COUNT = 50;
     const int EDGE_COUNT = 3*POINT_COUNT;
+    const int mx = max(width, height);
+
     for(int i=0; i < POINT_COUNT; ++i){
-        points.emplace_back( r(),r(),r() );
+        points.emplace_back( rand()%width, rand()%height, rand()%(2*mx)-mx );
     }
     for(int i=0; i < EDGE_COUNT; ++i){
         edges.emplace_back( rand()%POINT_COUNT, rand()%POINT_COUNT );
@@ -96,21 +89,11 @@ void loadGraph(vector<Node>& points, vector<Edge>& edges){
 
 void exitSDLerr(){
     cerr << "SDL error: " << SDL_GetError() << endl;
+    SDL_Quit();
     exit(1);
 }
 
 int main(int argc, char* argv[]){
-    vector<RBPoint> xy;
-    vector<Node> points;
-    vector<Edge> edges;
-    loadGraph(points, edges);
-    xy.resize( points.size() );
-
-    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
-    Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
-    const double DX = 0.01;              // defines how delta changes (angluar acceleration)
-    const double ZOOM = 100.0;           // defines how screen.d changes
-
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 600;
     const int WINPOS = SDL_WINDOWPOS_CENTERED;
@@ -123,6 +106,20 @@ int main(int argc, char* argv[]){
     if(0==renderer){ exitSDLerr(); }
 
     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP); // SDL_WINDOW_FULLSCREEN for different resolution
+
+    SDL_DisplayMode dm;
+    SDL_GetCurrentDisplayMode(0, &dm);
+
+    vector<RBPoint> xy;
+    vector<Node> points;
+    vector<Edge> edges;
+    loadGraph(points, edges, dm.w, dm.h);
+    xy.resize( points.size() );
+
+    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
+    const double DX = 0.01;              // defines how delta changes (angluar acceleration)
+    const double ZOOM = 100.0;           // defines how screen.d changes
 
     SDL_Event e;
     bool run = true;
@@ -143,12 +140,12 @@ int main(int argc, char* argv[]){
             }
 	}
 
-	screen = screen + delta;
+	screen += delta;
         for(int i=0; i< xy.size(); ++i){
-	    project(screen, points[i].pt, xy[i]);
+	    project(screen, points[i].pt, xy[i], dm.w, dm.h);
 	}
-	// sort xy on depth    // TODO: do we need this???
-	std::sort(xy.begin(), xy.end(), [](const RBPoint& lhs, const RBPoint& rhs){ return lhs.redx-lhs.bluex < rhs.redx-rhs.bluex; } );
+	// sort xy on depth
+//	std::sort(xy.begin(), xy.end(), [](const RBPoint& lhs, const RBPoint& rhs){ return lhs.redx-lhs.bluex < rhs.redx-rhs.bluex; } );
 
         SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
