@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <SDL2/SDL.h> // Simple Directmedia Layer lib
 using namespace std;
 
 struct Polar {
@@ -44,15 +45,24 @@ void project(const Polar& screen, const Point& point, iPoint& pt){
     const double screenX = 1000.0;
     const double screenY = 1000.0;
     const double eyeDist = 1000.0;    // distance from the screen to your eye
+    pt.x = point.x;
+    pt.y = point.y;
+    pt.z = point.z;
 } 
 
 iPoint red(const iPoint& pt){}
 iPoint blue(const iPoint& pt){}
 
-void drawPoint(const iPoint& pt){ // circle at pt.x, pt.y of size pt.z
+void drawPoint(SDL_Renderer* rend, const iPoint& pt){ // circle at pt.x, pt.y of size pt.z
+    SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE);
+//    SDL_SetRenderDrawBlendMode(rend,SDL_BLENDMODE_ADD);
+    SDL_RenderDrawPoint(rend, pt.x, pt.y);
 }
 
-void drawEdge(const iPoint& from, const iPoint& to){ // line from .. to ..
+void drawEdge(SDL_Renderer* rend, const iPoint& from, const iPoint& to){ // line from .. to ..
+    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE);        
+//    SDL_SetRenderDrawBlendMode(rend,SDL_BLENDMODE_ADD);
+    SDL_RenderDrawLine(rend, from.x, from.y , to.x, to.y);
 }
 
 double r(){ return (double) (rand() % 2000) - 1000.0; }
@@ -79,32 +89,70 @@ int main(int argc, char* argv[]){
         edges.push_back( Edge(rand()%100, rand()%100) );
     }
 
-    for(;;){
+    /************************* INIT SDL ****************************/
+    if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
+        cerr << "SDL could not initialized! SDL_Error: " << SDL_GetError() << endl;
+	return 1;
+    }
+    const int SCREEN_WIDTH = 800;
+    const int SCREEN_HEIGHT = 600;
+
+//    SDL_Window* window = NULL;
+//    SDL_Renderer* renderer = NULL;
+//    if( SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer) != 0 ) {
+
+    SDL_Window* window=SDL_CreateWindow("3dgra", SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH,SCREEN_HEIGHT,SDL_WINDOW_SHOWN);
+    SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, 0);
+    if( 0==window || 0==renderer){
+        cerr << "Window & renderer could not be created! SDL_Error: " << SDL_GetError() << endl;
+	return 2;
+    }
+
+//    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP); // SDL_WINDOW_FULLSCREEN for different resolution
+    SDL_Event e;
+    bool run = true;
+
+    while(run){
+        SDL_PollEvent( &e ); // SDL_WaitEvent(&e);
+	if(e.type == SDL_QUIT){ break; }
+	if(e.type == SDL_KEYDOWN){
+            switch(e.key.keysym.sym){
+	        case SDLK_q:  run = false;       break;
+	        case SDLK_PLUS:  screen.d +=DX;  break;
+                case SDLK_MINUS: screen.d -=DX;  break;
+	        case SDLK_LEFT:  delta.x  -=DX;  break;
+	        case SDLK_RIGHT: delta.x  +=DX;  break;
+	        case SDLK_UP:    delta.y  -=DX;  break;
+	        case SDLK_DOWN:  delta.y  +=DX;  break;
+	    }
+        }
+	screen = screen + delta;
+
         for(int i=0; i< POINT_COUNT; ++i){
 	    project(screen, points[i].pt, xy[i]); // in xy: x,y are screen coordinates of a point and z is the depth	    
 	}
 	std::sort(xy.begin(), xy.end(), lessZ);
-        for(int i=0; i< POINT_COUNT; ++i){
-            drawPoint(xy[i]);
-	}
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+        SDL_RenderClear(renderer);
+
+        // TODO: draw red and blue separately (sequentially) ???
 	for(int i=0; i< EDGE_COUNT; ++i){
-	    drawEdge( xy[edges[i].from], xy[edges[i].to]);
+	    drawEdge(renderer, xy[edges[i].from], xy[edges[i].to]);
+	}
+        for(int i=0; i< POINT_COUNT; ++i){
+            drawPoint(renderer, xy[i]);
 	}
 
-	int key = 0;
-// DEBUGGING:
-	const int LEFT = 1;
-	const int RIGHT = 2;
-	const int UP = 3;
-	const int DOWN = 4;
-        switch(key){
-	    case '+':   screen.d+=DX; break;
-            case '-':   screen.d-=DX; break;
-	    case LEFT:  delta.x-=DX;  break;
-	    case RIGHT: delta.x+=DX;  break;
-	    case UP:    delta.y-=DX;  break;
-	    case DOWN:  delta.y+=DX;  break;
-	}
-	screen = screen + delta;
+        SDL_RenderPresent(renderer);
+        SDL_Delay( 50 );
     }
+
+    if (renderer) {
+        SDL_DestroyRenderer(renderer);
+    }
+    if (window) {
+        SDL_DestroyWindow(window);
+    }
+    SDL_Quit();
 }
