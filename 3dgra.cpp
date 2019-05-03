@@ -46,6 +46,7 @@ void project(const Polar& screen, const Point& point, RBPoint& pt){
     const double screenX = 1000.0;
     const double screenY = 1000.0;
 
+// TODO: use screen.d for depth calculations && screen.x, screen.y for rotation calculations. Avoid screen.z (twist)
     int screenZ = (point.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
     screenZ = min(screenZ, 70);   // infinity
@@ -82,38 +83,41 @@ void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // li
 
 double r(){ return (double) (rand() % 2000 - 1000); }
 
-void exitSDLerr(){
-    cerr << "SDL error: " << SDL_GetError() << endl;
-    exit(1);
-}
-
-int main(int argc, char* argv[]){
-    vector<Node> points;
-    vector<Edge> edges;
-    vector<RBPoint> xy;
-    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
-    Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen
-    const double DX = 0.01;              // defines how delta changes
-    const double ZOOM = 100.0;           // defines how screen.d changes
-
+void loadGraph(vector<Node>& points, vector<Edge>& edges){
     const int POINT_COUNT = 100;
-    const int EDGE_COUNT = 300;
-    xy.resize(POINT_COUNT); // match points[]
-
+    const int EDGE_COUNT = 3*POINT_COUNT;
     for(int i=0; i < POINT_COUNT; ++i){
         points.emplace_back( r(),r(),r() );
     }
     for(int i=0; i < EDGE_COUNT; ++i){
         edges.emplace_back( rand()%POINT_COUNT, rand()%POINT_COUNT );
     }
+}
+
+void exitSDLerr(){
+    cerr << "SDL error: " << SDL_GetError() << endl;
+    exit(1);
+}
+
+int main(int argc, char* argv[]){
+    vector<RBPoint> xy;
+    vector<Node> points;
+    vector<Edge> edges;
+    loadGraph(points, edges);
+    xy.resize( points.size() );
+
+    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
+    const double DX = 0.01;              // defines how delta changes (angluar acceleration)
+    const double ZOOM = 100.0;           // defines how screen.d changes
 
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 600;
-    const int winpos = SDL_WINDOWPOS_CENTERED;
+    const int WINPOS = SDL_WINDOWPOS_CENTERED;
 
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) { exitSDLerr(); }
 
-    SDL_Window* window=SDL_CreateWindow("3dgra", winpos, winpos, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Window* window=SDL_CreateWindow("3dgra", WINPOS, WINPOS, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     if(0==window){ exitSDLerr(); }
     SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, 0);
     if(0==renderer){ exitSDLerr(); }
@@ -128,7 +132,7 @@ int main(int argc, char* argv[]){
 	    else if(e.type == SDL_KEYDOWN){
                 switch(e.key.keysym.sym){
 		    case SDLK_ESCAPE:
-	            case SDLK_q:  run = false;        break;
+	            case SDLK_q:     run=false;       break;
 	            case SDLK_PLUS:  screen.d +=ZOOM; break;
                     case SDLK_MINUS: screen.d -=ZOOM; break;
 	            case SDLK_LEFT:  delta.x  -=DX;   break;
