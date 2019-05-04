@@ -2,7 +2,23 @@
 #include <vector>
 #include <iostream>
 #include <SDL2/SDL.h> // Simple Directmedia Layer lib
-using namespace std;
+
+struct Point {
+    double x,y,z;
+    Point(): x(0.0), y(0.0), z(0.0) {}
+    Point(double X, double Y, double Z): x(X), y(Y), z(Z) {}
+    double  dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
+    Point cross(const Point& p) const { return Point( y*p.z-z*p.y,  z*p.x-x*p.z,  x*p.y-y*p.x ); }
+    Point translate(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
+    Point rotate(const double a, const double b) const { return Point(x*sin(a), y*cos(a), z*sin(b) ); }
+//    Point rotate(const double a, const double b) const { return Point(x*sin(a), y, z ); }
+};
+
+struct RBPoint{
+    int redx, bluex, y;
+    RBPoint(): redx(0), bluex(0), y(0) {}
+    RBPoint(int redX, int blueX, int Y): redx(redX), bluex(blueX), y(Y) {}
+};
 
 struct Polar {
     double x,y,z,d; // 3 angles + distance
@@ -10,18 +26,7 @@ struct Polar {
     Polar(double X, double Y, double Z, double D): x(X), y(Y), z(Z), d(D) {}
     Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
     Polar& operator+=(const Polar&rhs){x+=rhs.x; y+=rhs.y; z+=rhs.z; d+=rhs.d; return *this; }
-};
-  
-struct Point {
-    double x,y,z;
-    Point(): x(0.0), y(0.0), z(0.0) {}
-    Point(double X, double Y, double Z): x(X), y(Y), z(Z) {}
-};
-
-struct RBPoint{
-    int redx, bluex, y;
-    RBPoint(): redx(0), bluex(0), y(0) {}
-    RBPoint(int redX, int blueX, int Y): redx(redX), bluex(blueX), y(Y) {}
+    Point point() const { return Point( d*sin(x), d*cos(x), d*sin(y) ); }
 };
 
 struct Node {
@@ -38,7 +43,25 @@ struct Edge{
 };
 
 // project Point to screen coordinates RBPoint
+// the center between 2 cameras is always looking straight at the origin
+// translate the point so that the first camera is at 0,0,0
+
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
+    Point screenPt = screen.point();
+    Point translated = point.translate(screenPt);
+    Point rotated = translated.rotate(screen.x, screen.y);
+
+    const double eyeDist = 1000.0; // distance from the screen to your eye
+    const double eye2eye = 100.0;  // distance between eyes
+    int screenZ = (rotated.z+eyeDist)*(eye2eye/eyeDist)*2;
+    screenZ = std::min(screenZ, 70);   // infinity
+    screenZ = std::max(screenZ, -70); // too close
+    pt.redx  = rotated.x + screenZ; // simple scaled parallel projection for now
+    pt.bluex = rotated.x - screenZ;
+    pt.y = rotated.y;
+}
+
+void project2(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     const double eyeDist = 1000.0; // distance from the screen to your eye
     const double eye2eye = 100.0;  // distance between eyes
 
@@ -46,8 +69,8 @@ void project(const Polar& screen, const Point& point, RBPoint& pt, int width, in
 // rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
     int screenZ = (point.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
-    screenZ = min(screenZ, 70);   // infinity
-    screenZ = max(screenZ, -70); // too close
+    screenZ = std::min(screenZ, 70);   // infinity
+    screenZ = std::max(screenZ, -70); // too close
 
     pt.redx  = point.x + screenZ;
     pt.bluex = point.x - screenZ;
@@ -74,10 +97,10 @@ void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // li
     SDL_RenderDrawLine(rend, from.bluex, from.y , to.bluex, to.y);
 }
 
-void loadGraph(vector<Node>& points, vector<Edge>& edges, int width, int height){ // screen width & height
+void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, int height){ // screen width & height
     const int POINT_COUNT = 50;
     const int EDGE_COUNT = 3*POINT_COUNT;
-    const int mx = max(width, height);
+    const int mx = std::max(width, height);
 
     for(int i=0; i < POINT_COUNT; ++i){
         points.emplace_back( rand()%width, rand()%height, rand()%(2*mx)-mx );
@@ -88,7 +111,7 @@ void loadGraph(vector<Node>& points, vector<Edge>& edges, int width, int height)
 }
 
 void exitSDLerr(){
-    cerr << "SDL error: " << SDL_GetError() << endl;
+    std::cerr << "SDL error: " << SDL_GetError() << std::endl;
     SDL_Quit();
     exit(1);
 }
@@ -110,9 +133,9 @@ int main(int argc, char* argv[]){
     SDL_DisplayMode dm;
     SDL_GetCurrentDisplayMode(0, &dm);
 
-    vector<RBPoint> xy;
-    vector<Node> points;
-    vector<Edge> edges;
+    std::vector<RBPoint> xy;
+    std::vector<Node> points;
+    std::vector<Edge> edges;
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
@@ -126,7 +149,7 @@ int main(int argc, char* argv[]){
     while(run){
         while( SDL_PollEvent( &e ) ){
 	    if(e.type == SDL_QUIT){ run=false; }
-	    else if(e.type == SDL_KEYDOWN){
+	    else if(e.type == SDL_KEYDOWN){ // TODO: add brightness (RGB) control???
                 switch(e.key.keysym.sym){
 		    case SDLK_ESCAPE:
 	            case SDLK_q:     run=false;       break;
