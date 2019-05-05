@@ -7,11 +7,22 @@ struct Point {
     double x,y,z;
     Point(): x(0.0), y(0.0), z(0.0) {}
     Point(double X, double Y, double Z): x(X), y(Y), z(Z) {}
-    double  dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
-    Point cross(const Point& p) const { return Point( y*p.z-z*p.y,  z*p.x-x*p.z,  x*p.y-y*p.x ); }
+//    double  dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
+//    Point cross(const Point& p) const { return Point( y*p.z-z*p.y,  z*p.x-x*p.z,  x*p.y-y*p.x ); }
     Point translate(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
-    Point rotate(const double a, const double b) const { return Point(x*sin(a), y*cos(a), z*sin(b) ); }
-//    Point rotate(const double a, const double b) const { return Point(x*sin(a), y, z ); }
+    Point rotate(const double a) const { // rotate in x-y plane
+        const double sa = sin(a);
+	const double ca = cos(a);
+        return Point( x*ca-y*sa, y*ca+x*sa, z ); // https://academo.org/demos/rotation-about-point/
+    }
+    Point rotate(const double a, const double b) const { // no twist
+        const double sa = sin(a);
+	const double ca = cos(a);
+	const double sb = sin(b);
+        const double cb = cos(b);
+        return Point( x*(ca*cb)-y*(sa*sb)+x*(sb), y*(ca*sb+sa*sb)+y*(ca*cb-sa*sb)-y*(sa*cb), z*(sa-ca*sb)+z*(sa+ca*sb)+z*(ca*cb) );
+        // https://math.stackexchange.com/questions/1741282/3d-calculate-new-location-of-point-after-rotation-around-origin
+    }
 };
 
 struct RBPoint{
@@ -26,56 +37,48 @@ struct Polar {
     Polar(double X, double Y, double Z, double D): x(X), y(Y), z(Z), d(D) {}
     Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
     Polar& operator+=(const Polar&rhs){x+=rhs.x; y+=rhs.y; z+=rhs.z; d+=rhs.d; return *this; }
-    Point point() const { return Point( d*sin(x), d*cos(x), d*sin(y) ); }
+    Point point() const { return Point( d*cos(x)*cos(y), d*cos(x)*sin(y), d*sin(y) ); }
+    // https://stackoverflow.com/questions/8602408/3d-rotation-around-the-origin
 };
 
-struct Node {
-//    int id;
-//    string label;
-    Point pt;
-    Node(double X, double Y, double Z): pt(X,Y,Z) {}
-};
+void line(SDL_Renderer* rend, const Point& p1, const Point& p2){
+    SDL_RenderDrawLine(rend, p1.x, p1.y , p2.x, p2.y);
+}
 
-struct Edge{
-    int from, to;
-    Edge(): from(0), to(0) {}
-    Edge(int fromID, int toID): from(fromID), to(toID) {}
-};
+void runTests(SDL_Renderer* rend){
+    static double angle = 0.0;
+    angle+=0.03;
+    SDL_SetRenderDrawColor(rend, 0x00, 0xFF, 0x00, SDL_ALPHA_OPAQUE); // green
+
+    Point v0(400,300,0);
+    Point v1(300,0,0);
+    Point v2 = v1.translate(v0);
+    line(rend, v0, v2);
+    Point v3 = v1.rotate(angle).translate(v0);
+    line(rend, v0, v3);
+}
 
 // project Point to screen coordinates RBPoint
 // the center between 2 cameras is always looking straight at the origin
 // translate the point so that the first camera is at 0,0,0
+// TODO: use screen.d for depth calculations && screen.x, screen.y for rotation calculations. Avoid screen.z (twist)
+// rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
 
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     Point screenPt = screen.point();
-    Point translated = point.translate(screenPt);
-    Point rotated = translated.rotate(screen.x, screen.y);
+    Point p1 = point.rotate(screen.y);
+    Point p2 = p1.translate(screenPt);
 
     const double eyeDist = 1000.0; // distance from the screen to your eye
     const double eye2eye = 100.0;  // distance between eyes
-    int screenZ = (rotated.z+eyeDist)*(eye2eye/eyeDist)*2;
-    screenZ = std::min(screenZ, 70);   // infinity
-    screenZ = std::max(screenZ, -70); // too close
-    pt.redx  = rotated.x + screenZ; // simple scaled parallel projection for now
-    pt.bluex = rotated.x - screenZ;
-    pt.y = rotated.y;
-}
-
-void project2(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
-    const double eyeDist = 1000.0; // distance from the screen to your eye
-    const double eye2eye = 100.0;  // distance between eyes
-
-// TODO: use screen.d for depth calculations && screen.x, screen.y for rotation calculations. Avoid screen.z (twist)
-// rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
-    int screenZ = (point.z+eyeDist)*(eye2eye/eyeDist)*2;
+    int screenZ = (p2.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
     screenZ = std::min(screenZ, 70);   // infinity
     screenZ = std::max(screenZ, -70); // too close
 
-    pt.redx  = point.x + screenZ;
-    pt.bluex = point.x - screenZ;
-    pt.y = point.y;
-// TODO: make sure redx and bluex are on screen (>0 && <width) otherwise set y to -1
+    pt.redx  = p2.x + screenZ; // simple scaled parallel projection for now
+    pt.bluex = p2.x - screenZ;
+    pt.y = p2.y; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
 }
 
 void drawPoint(SDL_Renderer* rend, const RBPoint& pt){
@@ -96,6 +99,19 @@ void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // li
     SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
     SDL_RenderDrawLine(rend, from.bluex, from.y , to.bluex, to.y);
 }
+
+struct Node {
+//    int id;
+//    string label;
+    Point pt;
+    Node(double X, double Y, double Z): pt(X,Y,Z) {}
+};
+
+struct Edge{
+    int from, to;
+    Edge(): from(0), to(0) {}
+    Edge(int fromID, int toID): from(fromID), to(toID) {}
+};
 
 void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, int height){ // screen width & height
     const int POINT_COUNT = 50;
@@ -145,6 +161,7 @@ int main(int argc, char* argv[]){
     const double ZOOM = 100.0;           // defines how screen.d changes
 
     SDL_Event e;
+    bool test = false;
     bool run = true;
     while(run){
         while( SDL_PollEvent( &e ) ){
@@ -153,6 +170,7 @@ int main(int argc, char* argv[]){
                 switch(e.key.keysym.sym){
 		    case SDLK_ESCAPE:
 	            case SDLK_q:     run=false;       break;
+		    case SDLK_t:     test=!test;      break;
 	            case SDLK_PLUS:  screen.d +=ZOOM; break;
                     case SDLK_MINUS: screen.d -=ZOOM; break;
 	            case SDLK_LEFT:  delta.x  -=DX;   break;
@@ -180,6 +198,10 @@ int main(int argc, char* argv[]){
 	}
         for(int i=0; i< xy.size(); ++i){
             drawPoint(renderer, xy[i]);
+	}
+
+	if(test){
+	    runTests(renderer);
 	}
 
         SDL_RenderPresent(renderer);
