@@ -10,10 +10,21 @@ struct Point {
 //    double  dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
 //    Point cross(const Point& p) const { return Point( y*p.z-z*p.y,  z*p.x-x*p.z,  x*p.y-y*p.x ); }
     Point translate(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
-    Point rotate(const double a) const { // rotate in x-y plane
+    // https://www.siggraph.org/education/materials/HyperGraph/modeling/mod_tran/3drota.htm
+    Point rotateZ(const double a) const { // rotate in x-y plane around z axis
         const double sa = sin(a);
 	const double ca = cos(a);
-        return Point( x*ca-y*sa, y*ca+x*sa, z ); // https://academo.org/demos/rotation-about-point/
+        return Point( x*ca-y*sa, y*ca+x*sa, z );
+    }
+    Point rotateX(const double a) const { // rotate in x-y plane around z axis
+        const double sa = sin(a);
+	const double ca = cos(a);
+        return Point( x, y*ca-z*sa, y*sa+z*ca );
+    }
+    Point rotateY(const double a) const { // rotate in x-y plane around z axis
+        const double sa = sin(a);
+	const double ca = cos(a);
+        return Point( z*sa+x*ca, y, z*ca-x*sa );
     }
     Point rotate(const double a, const double b) const { // no twist
         const double sa = sin(a);
@@ -54,7 +65,7 @@ void runTests(SDL_Renderer* rend){
     Point v1(300,0,0);
     Point v2 = v1.translate(v0);
     line(rend, v0, v2);
-    Point v3 = v1.rotate(angle).translate(v0);
+    Point v3 = v1.rotateZ(angle).translate(v0);
     line(rend, v0, v3);
 }
 
@@ -66,7 +77,7 @@ void runTests(SDL_Renderer* rend){
 
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     Point screenPt = screen.point();
-    Point p1 = point.rotate(screen.y);
+    Point p1 = point.rotateY(screen.y);
     Point p2 = p1.translate(screenPt);
 
     const double eyeDist = 1000.0; // distance from the screen to your eye
@@ -173,10 +184,10 @@ int main(int argc, char* argv[]){
 		    case SDLK_t:     test=!test;      break;
 	            case SDLK_PLUS:  screen.d +=ZOOM; break;
                     case SDLK_MINUS: screen.d -=ZOOM; break;
-	            case SDLK_LEFT:  delta.x  -=DX;   break;
-	            case SDLK_RIGHT: delta.x  +=DX;   break;
-	            case SDLK_UP:    delta.y  -=DX;   break;
-	            case SDLK_DOWN:  delta.y  +=DX;   break;
+	            case SDLK_LEFT:  delta.y  -=DX;   break;
+	            case SDLK_RIGHT: delta.y  +=DX;   break;
+	            case SDLK_UP:    delta.x  -=DX;   break;
+	            case SDLK_DOWN:  delta.x  +=DX;   break;
 	        }
             }
 	}
