@@ -81,16 +81,17 @@ void runTests(SDL_Renderer* rend){
 // rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
 
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
-    Point screenPt = screen.point();
     Point p1 = point.rotateX(screen.x).rotateY(screen.y);
+//    Point screenPt = screen.point();
 //    Point p2 = p1.translate(screenPt);
 
-    const double eyeDist = 1000.0; // distance from the screen to your eye
+//    const double eyeDist = 1000.0; // distance from the screen to your eye
+    const double eyeDist = screen.d; // distance from the screen to your eye
     const double eye2eye = 100.0;  // distance between eyes
     int screenZ = (p1.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
-    screenZ = std::min(screenZ, 70);   // infinity
-    screenZ = std::max(screenZ, -70); // too close
+    screenZ = std::min(screenZ, 90);   // infinity
+    screenZ = std::max(screenZ, -50); // too close
 
     pt.redx  = p1.x + screenZ + width/2; // simple scaled parallel projection for now
     pt.bluex = p1.x - screenZ + width/2;
@@ -171,7 +172,7 @@ int main(int argc, char* argv[]){
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
-    Polar screen(0.0, 0.0, -M_PI/(2.0/3.0), 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar screen(0.0, 0.0, -M_PI/2.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
     Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
     const double DX = 0.003;              // defines how delta changes (angluar acceleration)
     const double ZOOM = 100.0;           // defines how screen.d changes
@@ -187,8 +188,8 @@ int main(int argc, char* argv[]){
 		    case SDLK_ESCAPE:
 	            case SDLK_q:     run=false;       break;
 		    case SDLK_t:     test=!test;      break;
-	            case SDLK_PLUS:  screen.d +=ZOOM; break;
-                    case SDLK_MINUS: screen.d -=ZOOM; break;
+	            case SDLK_z:     screen.d +=ZOOM; break;
+                    case SDLK_x:     screen.d -=ZOOM; break;
 	            case SDLK_LEFT:  delta.y  -=DX;   break;
 	            case SDLK_RIGHT: delta.y  +=DX;   break;
 	            case SDLK_UP:    delta.x  -=DX;   break;
