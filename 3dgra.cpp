@@ -1,7 +1,9 @@
-//#include <algorithm> // sort()
+// This program requires anaglyph (Red/Blue) 3D glasses to view
+#include <SDL2/SDL.h> // Simple Directmedia Layer lib has to be installed
 #include <vector>
 #include <iostream>
-#include <SDL2/SDL.h> // Simple Directmedia Layer lib
+#include <string>
+extern void pstr(SDL_Renderer* renderer, int x, int y, const std::string& str);
 
 struct Point {
     double x,y,z;
@@ -46,10 +48,10 @@ struct Polar {
     double x,y,z,d; // 3 angles + distance
     Polar(): x(0.0), y(0.0), z(0.0), d(0.0) {}
     Polar(double X, double Y, double Z, double D): x(X), y(Y), z(Z), d(D) {}
-    Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
     Polar& operator+=(const Polar&rhs){x+=rhs.x; y+=rhs.y; z+=rhs.z; d+=rhs.d; return *this; }
+//    Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
     // http://tutorial.math.lamar.edu/Classes/CalcIII/SphericalCoords.aspx
-    Point point() const { return Point( d*sin(x)*cos(y), d*sin(x)*sin(y), d*cos(y) ); }
+//    Point point() const { return Point( d*sin(x)*cos(y), d*sin(x)*sin(y), d*cos(y) ); }
     // This does not work!!!  https://stackoverflow.com/questions/8602408/3d-rotation-around-the-origin
 //    Point point() const { return Point( d*cos(x)*cos(y), d*cos(x)*sin(y), d*sin(y) ); }
 };
@@ -74,16 +76,12 @@ void runTests(SDL_Renderer* rend){
     line(rend, v0, v5);
 }
 
-// project Point to screen coordinates RBPoint
+// project Point to screen coordinates RBPoint (red and blue points)
 // the center between 2 cameras is always looking straight at the origin
-// translate the point so that the first camera is at 0,0,0
 // TODO: use screen.d for depth calculations && screen.x, screen.y for rotation calculations. Avoid screen.z (twist)
-// rotate point by screen.x and screen.y then translate by screen.d, and project to two points on the screen
-
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     Point p1 = point.rotateX(screen.x).rotateY(screen.y);
-//    Point screenPt = screen.point();
-//    Point p2 = p1.translate(screenPt);
+//    Point p1 = point.rotate(screen.x,screen.y); // broken - wierd effect
 
 //    const double eyeDist = 1000.0; // distance from the screen to your eye
     const double eyeDist = screen.d; // distance from the screen to your eye
@@ -98,15 +96,17 @@ void project(const Polar& screen, const Point& point, RBPoint& pt, int width, in
     pt.y = p1.y + height/2; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
 }
 
-void drawPoint(SDL_Renderer* rend, const RBPoint& pt){
+void drawPoint(SDL_Renderer* rend, const RBPoint& pt, const std::string& str){
     if(pt.y < 0) { return; }
     SDL_Rect rect;  rect.x=pt.bluex-3;  rect.y= pt.y-3;  rect.w=7;  rect.h=7;
     SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
     SDL_RenderFillRect(rend, &rect); 
+    pstr(rend, pt.bluex+7, pt.y-3, str);
 
     rect.x = pt.redx-3;
     SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
     SDL_RenderFillRect(rend, &rect);
+    pstr(rend, pt.redx+7, pt.y-3, str);
 }
 
 void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // line
@@ -119,9 +119,9 @@ void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // li
 
 struct Node {
 //    int id;
-//    string label;
+    std::string label;
     Point pt;
-    Node(double X, double Y, double Z): pt(X,Y,Z) {}
+    Node(double X, double Y, double Z, std::string name): label(name), pt(X,Y,Z) {}
 };
 
 struct Edge{
@@ -133,9 +133,8 @@ struct Edge{
 void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, int height){ // screen width & height
     const int POINT_COUNT = 50;
     const int EDGE_COUNT = 2*POINT_COUNT;
-
     for(int i=0; i < POINT_COUNT; ++i){
-        points.emplace_back( rand()%(2*width)-width, rand()%(2*height)-height, rand()%(2*width)-width);
+        points.emplace_back( rand()%(2*width)-width, rand()%(2*height)-height, rand()%(2*width)-width, std::to_string(i) );
     }
     for(int i=0; i < EDGE_COUNT; ++i){
         edges.emplace_back( rand()%POINT_COUNT, rand()%POINT_COUNT );
@@ -148,7 +147,6 @@ void exitSDLerr(){
     exit(1);
 }
 
-#include <math.h>
 int main(int argc, char* argv[]){
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 600;
@@ -172,7 +170,7 @@ int main(int argc, char* argv[]){
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
-    Polar screen(0.0, 0.0, -M_PI/2.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
     Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
     const double DX = 0.003;              // defines how delta changes (angluar acceleration)
     const double ZOOM = 100.0;           // defines how screen.d changes
@@ -202,8 +200,6 @@ int main(int argc, char* argv[]){
         for(int i=0; i< xy.size(); ++i){
 	    project(screen, points[i].pt, xy[i], dm.w, dm.h);
 	}
-	// sort xy on depth
-//	std::sort(xy.begin(), xy.end(), [](const RBPoint& lhs, const RBPoint& rhs){ return lhs.redx-lhs.bluex < rhs.redx-rhs.bluex; } );
 
         SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
@@ -214,7 +210,7 @@ int main(int argc, char* argv[]){
 	    drawEdge(renderer, xy[edges[i].from], xy[edges[i].to]);
 	}
         for(int i=0; i< xy.size(); ++i){
-            drawPoint(renderer, xy[i]);
+            drawPoint(renderer, xy[i], points[i].label );
 	}
 
 	if(test){
