@@ -92,8 +92,8 @@ void project(const Polar& screen, const Point& point, RBPoint& pt, int width, in
     screenZ = std::min(screenZ, 70);   // infinity
     screenZ = std::max(screenZ, -70); // too close
 
-    pt.redx  = p2.x + screenZ; // simple scaled parallel projection for now
-    pt.bluex = p2.x - screenZ;
+    pt.redx  = p1.x + screenZ + width/2; // simple scaled parallel projection for now
+    pt.bluex = p1.x - screenZ + width/2;
     pt.y = p2.y; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
 }
 
@@ -132,10 +132,9 @@ struct Edge{
 void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, int height){ // screen width & height
     const int POINT_COUNT = 50;
     const int EDGE_COUNT = 3*POINT_COUNT;
-    const int mx = std::max(width, height);
 
     for(int i=0; i < POINT_COUNT; ++i){
-        points.emplace_back( rand()%width, rand()%height, rand()%(2*mx)-mx );
+        points.emplace_back( rand()%(2*width)-width, rand()%height, rand()%(2*width)-width);
     }
     for(int i=0; i < EDGE_COUNT; ++i){
         edges.emplace_back( rand()%POINT_COUNT, rand()%POINT_COUNT );
@@ -172,7 +171,7 @@ int main(int argc, char* argv[]){
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
-    Polar screen(0.0, M_PI/(2.0/3.0), 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar screen(0.0, 0.0, M_PI/(2.0/3.0), 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
     Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
     const double DX = 0.01;              // defines how delta changes (angluar acceleration)
     const double ZOOM = 100.0;           // defines how screen.d changes
