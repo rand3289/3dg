@@ -7,32 +7,32 @@ struct Point {
     double x,y,z;
     Point(): x(0.0), y(0.0), z(0.0) {}
     Point(double X, double Y, double Z): x(X), y(Y), z(Z) {}
+    Point translate(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
 //    double  dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
 //    Point cross(const Point& p) const { return Point( y*p.z-z*p.y,  z*p.x-x*p.z,  x*p.y-y*p.x ); }
-    Point translate(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
     // https://www.siggraph.org/education/materials/HyperGraph/modeling/mod_tran/3drota.htm
-    Point rotateZ(const double a) const { // rotate in x-y plane around z axis
-        const double sa = sin(a);
-	const double ca = cos(a);
-        return Point( x*ca-y*sa, y*ca+x*sa, z );
-    }
-    Point rotateX(const double a) const { // rotate in x-y plane around z axis
+    Point rotateX(const double a) const { // rotate around X axis
         const double sa = sin(a);
 	const double ca = cos(a);
         return Point( x, y*ca-z*sa, y*sa+z*ca );
     }
-    Point rotateY(const double a) const { // rotate in x-y plane around z axis
+    Point rotateY(const double a) const { // rotate around Y axis
         const double sa = sin(a);
 	const double ca = cos(a);
         return Point( z*sa+x*ca, y, z*ca-x*sa );
     }
+    Point rotateZ(const double a) const { // rotate around z axis
+        const double sa = sin(a);
+	const double ca = cos(a);
+        return Point( x*ca-y*sa, y*ca+x*sa, z );
+    }
+    // https://math.stackexchange.com/questions/1741282/3d-calculate-new-location-of-point-after-rotation-around-origin
     Point rotate(const double a, const double b) const { // no twist
         const double sa = sin(a);
 	const double ca = cos(a);
 	const double sb = sin(b);
         const double cb = cos(b);
         return Point( x*(ca*cb)-y*(sa*sb)+x*(sb), y*(ca*sb+sa*sb)+y*(ca*cb-sa*sb)-y*(sa*cb), z*(sa-ca*sb)+z*(sa+ca*sb)+z*(ca*cb) );
-        // https://math.stackexchange.com/questions/1741282/3d-calculate-new-location-of-point-after-rotation-around-origin
     }
 };
 
@@ -48,8 +48,10 @@ struct Polar {
     Polar(double X, double Y, double Z, double D): x(X), y(Y), z(Z), d(D) {}
     Polar operator+(const Polar& rhs) const { return Polar(x+rhs.x, y+rhs.y, z+rhs.z, d+rhs.d); }
     Polar& operator+=(const Polar&rhs){x+=rhs.x; y+=rhs.y; z+=rhs.z; d+=rhs.d; return *this; }
-    Point point() const { return Point( d*cos(x)*cos(y), d*cos(x)*sin(y), d*sin(y) ); }
-    // https://stackoverflow.com/questions/8602408/3d-rotation-around-the-origin
+    // http://tutorial.math.lamar.edu/Classes/CalcIII/SphericalCoords.aspx
+    Point point() const { return Point( d*sin(x)*cos(y), d*sin(x)*sin(y), d*cos(y) ); }
+    // This does not work!!!  https://stackoverflow.com/questions/8602408/3d-rotation-around-the-origin
+//    Point point() const { return Point( d*cos(x)*cos(y), d*cos(x)*sin(y), d*sin(y) ); }
 };
 
 void line(SDL_Renderer* rend, const Point& p1, const Point& p2){
@@ -63,10 +65,13 @@ void runTests(SDL_Renderer* rend){
 
     Point v0(400,300,0);
     Point v1(300,0,0);
-    Point v2 = v1.translate(v0);
-    line(rend, v0, v2);
-    Point v3 = v1.rotateZ(angle).translate(v0);
+    Point v2(0,300,0);
+    Point v3 = v2.rotateX(angle).translate(v0);
+    Point v4 = v1.rotateY(angle).translate(v0);
+    Point v5 = v1.rotateZ(angle).translate(v0);
     line(rend, v0, v3);
+    line(rend, v0, v4);
+    line(rend, v0, v5);
 }
 
 // project Point to screen coordinates RBPoint
@@ -143,6 +148,7 @@ void exitSDLerr(){
     exit(1);
 }
 
+#include <math.h>
 int main(int argc, char* argv[]){
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 600;
@@ -166,7 +172,7 @@ int main(int argc, char* argv[]){
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
-    Polar screen(0.0, 0.0, 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar screen(0.0, M_PI/(2.0/3.0), 0.0, 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
     Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
     const double DX = 0.01;              // defines how delta changes (angluar acceleration)
     const double ZOOM = 100.0;           // defines how screen.d changes
