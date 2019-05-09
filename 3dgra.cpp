@@ -82,19 +82,19 @@ void runTests(SDL_Renderer* rend){
 
 void project(const Polar& screen, const Point& point, RBPoint& pt, int width, int height){
     Point screenPt = screen.point();
-    Point p1 = point.rotateY(screen.y);
-    Point p2 = p1.translate(screenPt);
+    Point p1 = point.rotateX(screen.x).rotateY(screen.y);
+//    Point p2 = p1.translate(screenPt);
 
     const double eyeDist = 1000.0; // distance from the screen to your eye
     const double eye2eye = 100.0;  // distance between eyes
-    int screenZ = (p2.z+eyeDist)*(eye2eye/eyeDist)*2;
+    int screenZ = (p1.z+eyeDist)*(eye2eye/eyeDist)*2;
 //    int screenZ =  pt.z > 0 ? eye2eye*pt.z/(eyeDist+pt.z) : eye2eye*pt.z/eyeDist; // before or behind screen?
     screenZ = std::min(screenZ, 70);   // infinity
     screenZ = std::max(screenZ, -70); // too close
 
     pt.redx  = p1.x + screenZ + width/2; // simple scaled parallel projection for now
     pt.bluex = p1.x - screenZ + width/2;
-    pt.y = p2.y; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
+    pt.y = p1.y + height/2; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
 }
 
 void drawPoint(SDL_Renderer* rend, const RBPoint& pt){
@@ -131,10 +131,10 @@ struct Edge{
 
 void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, int height){ // screen width & height
     const int POINT_COUNT = 50;
-    const int EDGE_COUNT = 3*POINT_COUNT;
+    const int EDGE_COUNT = 2*POINT_COUNT;
 
     for(int i=0; i < POINT_COUNT; ++i){
-        points.emplace_back( rand()%(2*width)-width, rand()%height, rand()%(2*width)-width);
+        points.emplace_back( rand()%(2*width)-width, rand()%(2*height)-height, rand()%(2*width)-width);
     }
     for(int i=0; i < EDGE_COUNT; ++i){
         edges.emplace_back( rand()%POINT_COUNT, rand()%POINT_COUNT );
@@ -171,9 +171,9 @@ int main(int argc, char* argv[]){
     loadGraph(points, edges, dm.w, dm.h);
     xy.resize( points.size() );
 
-    Polar screen(0.0, 0.0, M_PI/(2.0/3.0), 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
+    Polar screen(0.0, 0.0, -M_PI/(2.0/3.0), 1000.0); // screen plane is orthogonal to this vector and is located screen.d distance from origin
     Polar delta (0.0, 0.0, 0.0, 0.0);    // defines rotation of the screen (angular velocity)
-    const double DX = 0.01;              // defines how delta changes (angluar acceleration)
+    const double DX = 0.003;              // defines how delta changes (angluar acceleration)
     const double ZOOM = 100.0;           // defines how screen.d changes
 
     SDL_Event e;
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]){
             }
 	}
 
-	screen += delta;
+	screen += delta; // rotate by delta every frame
         for(int i=0; i< xy.size(); ++i){
 	    project(screen, points[i].pt, xy[i], dm.w, dm.h);
 	}
