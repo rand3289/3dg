@@ -141,6 +141,11 @@ void loadGraph(std::vector<Node>& points, std::vector<Edge>& edges, int width, i
     }
 }
 
+void toggleFS(SDL_Window* win){
+    bool fs = SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN;
+    SDL_SetWindowFullscreen(win, fs ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+}
+
 void exitSDLerr(){
     std::cerr << "SDL error: " << SDL_GetError() << std::endl;
     SDL_Quit();
@@ -148,13 +153,13 @@ void exitSDLerr(){
 }
 
 int main(int argc, char* argv[]){
-    const int SCREEN_WIDTH = 800;
-    const int SCREEN_HEIGHT = 600;
+    const int SCREEN_WIDTH = 1024;
+    const int SCREEN_HEIGHT = 768;
     const int WINPOS = SDL_WINDOWPOS_CENTERED;
 
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) { exitSDLerr(); }
 
-    SDL_Window* window=SDL_CreateWindow("3dgra", WINPOS, WINPOS, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Window* window=SDL_CreateWindow("3dg", WINPOS, WINPOS, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     if(0==window){ exitSDLerr(); }
     SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, 0);
     if(0==renderer){ exitSDLerr(); }
@@ -181,17 +186,18 @@ int main(int argc, char* argv[]){
     while(run){
         while( SDL_PollEvent( &e ) ){
 	    if(e.type == SDL_QUIT){ run=false; }
-	    else if(e.type == SDL_KEYDOWN){ // TODO: add brightness (RGB) control???
+	    else if(e.type == SDL_KEYUP){ // TODO: add brightness (RGB) control???
                 switch(e.key.keysym.sym){
 		    case SDLK_ESCAPE:
-	            case SDLK_q:     run=false;       break;
-		    case SDLK_t:     test=!test;      break;
-	            case SDLK_z:     screen.d +=ZOOM; break;
-                    case SDLK_x:     screen.d -=ZOOM; break;
-	            case SDLK_LEFT:  delta.y  -=DX;   break;
-	            case SDLK_RIGHT: delta.y  +=DX;   break;
-	            case SDLK_UP:    delta.x  -=DX;   break;
-	            case SDLK_DOWN:  delta.x  +=DX;   break;
+	            case SDLK_q:      run=false;        break;
+		    case SDLK_t:      test=!test;       break;
+	            case SDLK_z:      screen.d +=ZOOM;  break;
+                    case SDLK_x:      screen.d -=ZOOM;  break;
+	            case SDLK_LEFT:   delta.y  -=DX;    break;
+	            case SDLK_RIGHT:  delta.y  +=DX;    break;
+	            case SDLK_UP:     delta.x  -=DX;    break;
+	            case SDLK_DOWN:   delta.x  +=DX;    break;
+                    case SDLK_RETURN: toggleFS(window); break;
 	        }
             }
 	}
