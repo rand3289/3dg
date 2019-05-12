@@ -4,6 +4,6 @@
 Future versions will display graphs stored in a dot file if you pass one on the command line. 
 https://en.wikipedia.org/wiki/DOT_(graph_description_language)
 
-### TODO ###
-*Current projection is a hack.  
+#### TODO ####
+*Current screen projection function is a hack.
 *Zoom in/out does not work
