@@ -42,7 +42,7 @@ void pchar(SDL_Renderer* renderer, int x, int y, char c){
     }
 
     for(int dy=0; dy<CH; ++dy){
-        int offset = dy*width+idx*CW; // TODO: optimize idx, ++y
+        int offset = dy*width+idx*CW; // TODO: optimize
         for(int dx=0; dx<CW; ++dx){
             if( ' ' != (*font)[offset+dx] ){
                 SDL_RenderDrawPoint(renderer, x+dx, y+dy);

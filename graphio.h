@@ -4,7 +4,6 @@
 #include <fstream>
 #include <vector>
 #include <string>
-using namespace std;
 
 struct GraphNode {
    unsigned int id;
@@ -20,18 +19,20 @@ struct GraphEdge{
 };
 
 
-class GraphIO{
-  std::fstream file;
+// this class reads and writes digraph dot files
+// https://en.wikipedia.org/wiki/DOT_(graph_description_language)
+class GraphIO {
+	std::fstream file;
+	int parseLabel(std::vector<std::string>& tokens, unsigned int start);
+	void parseLine(std::string& line, std::vector<GraphNode>& nodesOut, std::vector<GraphEdge>& edgesOut);
 public:
 	GraphIO();
 	~GraphIO();
-	string InitGraph(); // returns graph name
-	void WriteNode(unsigned int id, int label);
-	void WriteEdge(unsigned int from, unsigned int to, int label);
-	void CloseGraph();
-	bool Parse(string file, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut);
-	void ParseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut);
-	int ParseLabel(vector<string>& tokens, unsigned int start);
+	std::string initGraph(const std::string& fileName = ""); // returns graph name
+	void writeNode(unsigned int id, int label);
+	void writeEdge(unsigned int from, unsigned int to, int label);
+	void closeGraph();
+	bool parse(std::string fileName, std::vector<GraphNode>& nodesOut, std::vector<GraphEdge>& edgesOut);
 };
 
 

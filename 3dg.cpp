@@ -1,4 +1,4 @@
-// This program requires anaglyph (Red/Blue) 3D glasses to view
+// Simple 3D graph viewer.  This program requires anaglyph (Red/Blue) 3D glasses to view
 #include <SDL2/SDL.h> // Simple Directmedia Layer lib has to be installed
 #include <vector>
 #include <iostream>

@@ -9,33 +9,33 @@ using namespace std::chrono;
 
 
 GraphIO::GraphIO(){}
-GraphIO::~GraphIO(){ CloseGraph(); }
+GraphIO::~GraphIO(){ closeGraph(); }
 
 
-string GraphIO::InitGraph(){
-	stringstream date;
-	date << std::chrono::system_clock::now().time_since_epoch().count();
-	file.open((date.str()+".dot").c_str(), ios_base::out);
-
-	file << "digraph ";
-	file << date.str();
-	file << " {" << endl;
-
-	return date.str();
+string GraphIO::initGraph(const string& fileName){
+	stringstream fname;
+	if(fileName.length() > 0){
+            fname << fileName;
+	} else {
+	    fname << std::chrono::system_clock::now().time_since_epoch().count() << ".dot";
+        }
+	file.open( fname.str(), ios_base::out);
+	file << "digraph " << fname.str() << " {" << endl;
+	return fname.str();
 }
 
 
-void GraphIO::WriteNode(unsigned int id, int label){
+void GraphIO::writeNode(unsigned int id, int label){
   file << id << " [label=" << label << "]" << endl;
 }
 
 
-void GraphIO::WriteEdge(unsigned int from, unsigned int to, int label){
+void GraphIO::writeEdge(unsigned int from, unsigned int to, int label){
   file << from << " -> " << to << " [label=" << label << "]" << endl;
 }
 
 
-void GraphIO::CloseGraph(){
+void GraphIO::closeGraph(){
 	file << "}" << endl;
 	file.close();
 }
@@ -43,7 +43,7 @@ void GraphIO::CloseGraph(){
 
 //################################# PARSING ####################################
 
-// this is a hack... use boost???
+// this is a hack...
 void tokenize(string& str, vector<string>& tokens){
   char* vstr = strdup(str.c_str());
   char* found = strtok(vstr," =");
@@ -57,7 +57,7 @@ void tokenize(string& str, vector<string>& tokens){
 
 // 1 token: [label=0123456789] 
 // 5 tokens: [ label = 0123456789 ]
-int GraphIO::ParseLabel(vector<string>& tokens, unsigned int start){
+int GraphIO::parseLabel(vector<string>& tokens, unsigned int start){
   for(; start < tokens.size(); ++start){
     int label = atoi(tokens[start].c_str());
     if(label){
@@ -68,7 +68,7 @@ int GraphIO::ParseLabel(vector<string>& tokens, unsigned int start){
 } // ParseLabel()
 
 
-void GraphIO::ParseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
+void GraphIO::parseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
   vector<string> tokens;
   tokenize(line, tokens);
   if(tokens.size() < 2){
@@ -76,7 +76,7 @@ void GraphIO::ParseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphE
   }
 
   if( string::npos != tokens[1].find("-") ){ // edge contains "-"
-    int label = ParseLabel(tokens,3); // skip "1 -> 2"
+    int label = parseLabel(tokens,3); // skip "1 -> 2"
     GraphEdge edge(atoi(tokens[0].c_str()), atoi(tokens[2].c_str()), label);
     edgesOut.push_back(edge);
     return;
@@ -84,7 +84,7 @@ void GraphIO::ParseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphE
 
   int node = atoi(tokens[0].c_str()); // if line starts with a number
   if(node){
-    int label = ParseLabel(tokens,2);
+    int label = parseLabel(tokens,2);
     GraphNode gnode(node, label);
     nodesOut.push_back(gnode);
   }
@@ -94,8 +94,8 @@ void GraphIO::ParseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphE
 // file is a full path to a *.dot file
 // nodesOut will contain a list of nodes and their metadata in the graph
 // edgesOut will contain a list of all edges in the graph
-bool GraphIO::Parse(string file, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
-  ifstream input(file);
+bool GraphIO::parse(string fileName, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
+  ifstream input(fileName);
   string str;
   while( !getline(input,str).eof() ){
     if( input.bad() ){
@@ -103,7 +103,7 @@ bool GraphIO::Parse(string file, vector<GraphNode>& nodesOut, vector<GraphEdge>&
         return false;
     }
     try{
-      ParseLine(str,nodesOut, edgesOut);
+      parseLine(str,nodesOut, edgesOut);
     } catch (string& err){
         cerr << "Exception: " << err << endl;
 	return false;
