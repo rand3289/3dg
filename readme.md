@@ -1,7 +1,7 @@
 # 3dg
-3dg is a tiny 3D graph visualization program using anaglyph (red/blue) glasses written using Simple Directmedia Layer library.
+3dg is a tiny 3D graph visualization program to be used with anaglyph (red/blue) glasses written using Simple Directmedia Layer library.
 
-It can be used to visualize dot files
+Current version displays a random graph.
+It can be used to visualize graphs stored in a dot file format
 https://en.wikipedia.org/wiki/DOT_(graph_description_language)
-
-Current version does not load *.dot files yet.
+It supports graph node labels. You can rotate the graph around 2 axis by pressing arrow keys.  Escape or q-quits.
