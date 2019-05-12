@@ -5,5 +5,5 @@ Future versions will display graphs stored in a dot file if you pass one on the 
 https://en.wikipedia.org/wiki/DOT_(graph_description_language)
 
 #### TODO ####
-*Current screen projection function is a hack.
-*Zoom in/out does not work
+* Current screen projection function is a hack.
+* Zoom in/out does not work
