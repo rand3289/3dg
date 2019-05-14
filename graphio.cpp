@@ -25,12 +25,12 @@ string GraphIO::initGraph(const string& fileName){
 }
 
 
-void GraphIO::writeNode(unsigned int id, int label){
+void GraphIO::writeNode(unsigned int id, const string& label){
   file << id << " [label=" << label << "]" << endl;
 }
 
 
-void GraphIO::writeEdge(unsigned int from, unsigned int to, int label){
+void GraphIO::writeEdge(unsigned int from, unsigned int to, const string& label){
   file << from << " -> " << to << " [label=" << label << "]" << endl;
 }
 
@@ -94,7 +94,7 @@ void GraphIO::parseLine(string& line, vector<GraphNode>& nodesOut, vector<GraphE
 // file is a full path to a *.dot file
 // nodesOut will contain a list of nodes and their metadata in the graph
 // edgesOut will contain a list of all edges in the graph
-bool GraphIO::parse(string fileName, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
+bool GraphIO::parse(const string& fileName, vector<GraphNode>& nodesOut, vector<GraphEdge>& edgesOut){
   ifstream input(fileName);
   string str;
   while( !getline(input,str).eof() ){

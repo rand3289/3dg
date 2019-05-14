@@ -29,10 +29,10 @@ public:
 	GraphIO();
 	~GraphIO();
 	std::string initGraph(const std::string& fileName = ""); // returns graph name
-	void writeNode(unsigned int id, int label);
-	void writeEdge(unsigned int from, unsigned int to, int label);
+	void writeNode(unsigned int id, const std::string& label);
+	void writeEdge(unsigned int from, unsigned int to, const std::string& label);
 	void closeGraph();
-	bool parse(std::string fileName, std::vector<GraphNode>& nodesOut, std::vector<GraphEdge>& edgesOut);
+	bool parse(const std::string& fileName, std::vector<GraphNode>& nodesOut, std::vector<GraphEdge>& edgesOut);
 };
 
 
