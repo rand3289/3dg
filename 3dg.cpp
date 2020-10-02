@@ -96,24 +96,28 @@ void project(const Polar& screen, const Point& point, RBPoint& pt, int width, in
     pt.y = p1.y + height/2; // TODO: make sure redx and bluex are on screen (>=0 && <width) otherwise set y to -1
 }
 
+// SDL_SetRenderDrawColor(rend, R, G, B, SDL_ALPHA_OPAQUE)
+void setLeftColor(SDL_Renderer* rend){ SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); }
+void setRightColor(SDL_Renderer* rend){ SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); }
+
 void drawPoint(SDL_Renderer* rend, const RBPoint& pt, const std::string& str){
     if(pt.y < 0) { return; }
     SDL_Rect rect;  rect.x=pt.bluex-3;  rect.y= pt.y-3;  rect.w=7;  rect.h=7;
-    SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
+    setLeftColor(rend);
     SDL_RenderFillRect(rend, &rect); 
     pstr(rend, pt.bluex+7, pt.y-3, str);
 
     rect.x = pt.redx-3;
-    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
+    setRightColor(rend);
     SDL_RenderFillRect(rend, &rect);
     pstr(rend, pt.redx+7, pt.y-3, str);
 }
 
 void drawEdge(SDL_Renderer* rend, const RBPoint& from, const RBPoint& to){ // line
     if( from.y < 0 && to.y < 0 ){ return; } // if both end points are off the screen, do not draw the edge
-    SDL_SetRenderDrawColor(rend, 0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE); // red
+    setRightColor(rend);
     SDL_RenderDrawLine(rend, from.redx, from.y , to.redx, to.y);
-    SDL_SetRenderDrawColor(rend, 0x00, 0x00, 0xFF, SDL_ALPHA_OPAQUE); // blue
+    setLeftColor(rend);
     SDL_RenderDrawLine(rend, from.bluex, from.y , to.bluex, to.y);
 }
 
